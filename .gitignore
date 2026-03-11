@@ -1,0 +1,7 @@
+mlruns/
+mlartifacts/
+*.db
+*.csv
+*.png
+*.pdf
+__pycache__/
