@@ -10,7 +10,7 @@ jobs:
   validate-and-test:
     runs-on: ubuntu-latest
     steps:
-      # BUG FIX 2: Checkout the code so requirements.txt exists!
+      # BUG FIX 2: Checkout the code so requirements.txt exists
       - name: Checkout Code
         uses: actions/checkout@v4
 
@@ -26,7 +26,8 @@ jobs:
           pip install flake8
 
       - name: Linter Check
-        # BUG FIX 3 (Part 2): Actually run the linter. (The --exit-zero flag prevents it from failing your build if your code is a little messy)
+        # BUG FIX 3 (Part 2): Actually run the linter. 
+        #(The --exit-zero flag prevents it from failing your build if your code is a little messy)
         run: flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
 
       - name: Model Dry Test
