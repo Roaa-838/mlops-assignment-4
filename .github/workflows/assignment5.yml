@@ -31,7 +31,7 @@ jobs:
 
       - name: Train Model and Log to MLflow
         run: |
-          # NOTE: To get your "Failed" screenshot, change this to: python train.py --fail
+          # NOTE: To get your "Failed" screenshot, change this to: python train.py 
           python train.py
 
       - name: Export Run ID Artifact
