@@ -7,7 +7,6 @@ on:
 jobs:
   validate:
     runs-on: ubuntu-latest
-    # CRITICAL: All 3 secrets must be here so train.py can log into DagsHub!
     env:
       MLFLOW_TRACKING_URI: ${{ secrets.MLFLOW_TRACKING_URI }}
       MLFLOW_TRACKING_USERNAME: ${{ secrets.MLFLOW_TRACKING_USERNAME }}
@@ -29,7 +28,7 @@ jobs:
         run: echo "Simulating DVC pull..."
 
       - name: Train Model and Log to MLflow
-        run: python train.py
+        run: python train.py --fail
 
       - name: Export Run ID Artifact
         uses: actions/upload-artifact@v4
@@ -40,7 +39,6 @@ jobs:
   deploy:
     needs: validate
     runs-on: ubuntu-latest
-    # CRITICAL: All 3 secrets must be here so check_threshold.py can read from DagsHub!
     env:
       MLFLOW_TRACKING_URI: ${{ secrets.MLFLOW_TRACKING_URI }}
       MLFLOW_TRACKING_USERNAME: ${{ secrets.MLFLOW_TRACKING_USERNAME }}
@@ -70,4 +68,4 @@ jobs:
         run: |
           RUN_ID=$(cat model_info.txt)
           echo "Building Docker image for Run ID: $RUN_ID"
-          docker build --build-arg RUN_ID=$RUN_ID -t production_model:$RUN_ID . --fail
+          docker build --build-arg RUN_ID=$RUN_ID -t production_model:$RUN_ID .
