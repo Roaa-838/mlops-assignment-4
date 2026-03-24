@@ -7,9 +7,11 @@ on:
 jobs:
   validate:
     runs-on: ubuntu-latest
-    # Inject the MLflow tracking URI securely
+    # CRITICAL: All 3 secrets must be here so train.py can log into DagsHub!
     env:
       MLFLOW_TRACKING_URI: ${{ secrets.MLFLOW_TRACKING_URI }}
+      MLFLOW_TRACKING_USERNAME: ${{ secrets.MLFLOW_TRACKING_USERNAME }}
+      MLFLOW_TRACKING_PASSWORD: ${{ secrets.MLFLOW_TRACKING_PASSWORD }}
     
     steps:
       - name: Checkout Code
@@ -24,15 +26,10 @@ jobs:
         run: pip install mlflow dvc
 
       - name: Pull Data
-        run: |
-          # Initialize/Run DVC to pull the dataset
-          # dvc pull
-          echo "Simulating DVC pull..."
+        run: echo "Simulating DVC pull..."
 
       - name: Train Model and Log to MLflow
-        run: |
-          # NOTE: To get your "Failed" screenshot, change this to: python train.py 
-          python train.py
+        run: python train.py
 
       - name: Export Run ID Artifact
         uses: actions/upload-artifact@v4
@@ -41,12 +38,14 @@ jobs:
           path: model_info.txt
 
   deploy:
-    needs: validate # Forces this job to wait for validation
+    needs: validate
     runs-on: ubuntu-latest
+    # CRITICAL: All 3 secrets must be here so check_threshold.py can read from DagsHub!
     env:
       MLFLOW_TRACKING_URI: ${{ secrets.MLFLOW_TRACKING_URI }}
       MLFLOW_TRACKING_USERNAME: ${{ secrets.MLFLOW_TRACKING_USERNAME }}
       MLFLOW_TRACKING_PASSWORD: ${{ secrets.MLFLOW_TRACKING_PASSWORD }}
+      
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -63,13 +62,11 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: model-info-artifact
-          # By default, v4 downloads directly into the current working directory
 
       - name: Validate Accuracy Threshold
         run: python check_threshold.py
 
       - name: Mock Docker Containerization
-        # This only runs if the previous step exits with 0 (success)
         run: |
           RUN_ID=$(cat model_info.txt)
           echo "Building Docker image for Run ID: $RUN_ID"
