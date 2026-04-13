@@ -1,0 +1,90 @@
+name: Assignment 6 - Gatekeeper CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, dev ]
+
+jobs:
+
+  # ── 1. LIGHTWEIGHT GATEKEEPER ────────────────────────────────────────────────
+  linter:
+    name: "Lint – Syntax & Error Check"
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install Flake8 Linter
+        run: pip install flake8
+
+      # Only flag fatal errors (syntax errors, undefined names).
+      # This keeps the gate cheap while catching truly broken code.
+      - name: Run Flake8 – Fatal Errors Only
+        run: |
+          flake8 . \
+            --count \
+            --select=E9,F63,F7,F82 \
+            --show-source \
+            --statistics
+
+  # ── 2. EXPENSIVE TRAINING JOB (triple-gated) ─────────────────────────────────
+  train:
+    name: "Train – GPU Model Training"
+    needs: linter          # Gate 1 – linter must pass first
+
+    # Gate 2 – only on main branch
+    # Gate 3 – commit message must contain [run-train]
+    if: |
+      success() &&
+      github.ref == 'refs/heads/main' &&
+      contains(github.event.head_commit.message, '[run-train]')
+
+    runs-on: ubuntu-latest
+    env:
+      MLFLOW_TRACKING_URI:      ${{ secrets.MLFLOW_TRACKING_URI }}
+      MLFLOW_TRACKING_USERNAME: ${{ secrets.MLFLOW_TRACKING_USERNAME }}
+      MLFLOW_TRACKING_PASSWORD: ${{ secrets.MLFLOW_TRACKING_PASSWORD }}
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install Dependencies
+        run: pip install -r requirements.txt
+
+      # Capture all output to error_logs.txt so it is available on failure.
+      # pipefail ensures the step still fails if train.py exits non-zero.
+      - name: Train Model and Log to MLflow
+        run: |
+          set -o pipefail
+          python train.py 2>&1 | tee error_logs.txt
+
+      - name: Export Run ID Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: model-info-artifact
+          path: model_info.txt
+
+      # ── ON FAILURE: upload logs so the developer can debug without re-running ─
+      - name: Upload Error Logs on Failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: error-logs
+          path: error_logs.txt
+
+      # ── ALWAYS: cleanup message, runs regardless of success or failure ─────────
+      - name: Cleanup Temporary Cloud Volumes
+        if: always()
+        run: echo "Cleaning up temporary cloud volumes..."
